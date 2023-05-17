@@ -289,8 +289,8 @@ fn main() {
         .add_plugin(BigBrainPlugin)
         .add_startup_system(init_entities)
         .add_system(thirst_system)
-        .add_system_to_stage(BigBrainStage::Actions, drink_action_system)
-        .add_system_to_stage(BigBrainStage::Actions, move_to_water_source_action_system)
-        .add_system_to_stage(BigBrainStage::Scorers, thirsty_scorer_system)
+        .add_system(drink_action_system.in_set(BigBrainStage::Actions))
+        .add_system(move_to_water_source_action_system.in_set(BigBrainStage::Actions))
+        .add_system(thirsty_scorer_system.in_set(BigBrainStage::Scorers))
         .run();
 }

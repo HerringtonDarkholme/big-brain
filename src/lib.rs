@@ -137,8 +137,8 @@
 //!         .add_plugin(BigBrainPlugin)
 //!         .add_startup_system(init_entities)
 //!         .add_system(thirst_system)
-//!         .add_system_to_stage(BigBrainStage::Actions, drink_action_system)
-//!         .add_system_to_stage(BigBrainStage::Scorers, thirsty_scorer_system)
+//!         .add_system(drink_action_system.in_set(BigBrainStage::Actions))
+//!         .add_system(thirsty_scorer_system.in_set(BigBrainStage::Scorers))
 //!         .run();
 //! }
 //! ```
@@ -223,50 +223,45 @@ pub struct BigBrainPlugin;
 
 impl Plugin for BigBrainPlugin {
     fn build(&self, app: &mut App) {
-        use CoreStage::*;
+        use CoreSet::*;
 
-        app.add_stage_after(First, BigBrainStage::Scorers, SystemStage::parallel());
-        app.add_system_set_to_stage(
-            BigBrainStage::Scorers,
-            SystemSet::new()
-                .with_system(scorers::fixed_score_system)
-                .with_system(scorers::measured_scorers_system)
-                .with_system(scorers::all_or_nothing_system)
-                .with_system(scorers::sum_of_scorers_system)
-                .with_system(scorers::product_of_scorers_system)
-                .with_system(scorers::winning_scorer_system)
-                .with_system(scorers::evaluating_scorer_system),
+        app.configure_set(BigBrainStage::Scorers.in_base_set(First));
+        app.add_systems(
+            (
+                scorers::fixed_score_system,
+                scorers::measured_scorers_system,
+                scorers::all_or_nothing_system,
+                scorers::sum_of_scorers_system,
+                scorers::product_of_scorers_system,
+                scorers::winning_scorer_system,
+                scorers::evaluating_scorer_system,
+            )
+                .in_set(BigBrainStage::Scorers),
         );
 
-        app.add_stage_after(
-            BigBrainStage::Scorers,
-            BigBrainStage::Thinkers,
-            SystemStage::parallel(),
-        );
-        app.add_system_to_stage(BigBrainStage::Thinkers, thinker::thinker_system);
+        app.configure_set(BigBrainStage::Thinkers.after(BigBrainStage::Scorers));
+        app.add_system(thinker::thinker_system.in_set(BigBrainStage::Thinkers));
 
-        app.add_stage_after(PreUpdate, BigBrainStage::Actions, SystemStage::parallel());
-        app.add_system_set_to_stage(
-            BigBrainStage::Actions,
-            SystemSet::new()
-                .with_system(actions::steps_system)
-                .with_system(actions::concurrent_system),
+        app.configure_set(BigBrainStage::Actions.in_base_set(PreUpdate));
+        app.add_systems(
+            (actions::steps_system, actions::concurrent_system).in_set(BigBrainStage::Actions),
         );
 
-        app.add_stage_after(Last, BigBrainStage::Cleanup, SystemStage::parallel());
-        app.add_system_set_to_stage(
-            BigBrainStage::Cleanup,
-            SystemSet::new()
-                .with_system(thinker::thinker_component_attach_system)
-                .with_system(thinker::thinker_component_detach_system)
-                .with_system(thinker::actor_gone_cleanup),
+        app.configure_set(BigBrainStage::Cleanup.in_base_set(Last));
+        app.add_systems(
+            (
+                thinker::thinker_component_attach_system,
+                thinker::thinker_component_detach_system,
+                thinker::actor_gone_cleanup,
+            )
+                .in_set(BigBrainStage::Cleanup),
         );
     }
 }
 
 /// [`BigBrainPlugin`] execution stages. Use these to schedule your own
 /// actions/scorers/etc.
-#[derive(Clone, Debug, Hash, Eq, PartialEq, StageLabel, Reflect)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, SystemSet, Reflect)]
 pub enum BigBrainStage {
     /// Scorers are evaluated in this stage.
     Scorers,
